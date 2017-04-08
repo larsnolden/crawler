@@ -1,0 +1,23 @@
+{
+  domain: 'nytimes.com',
+  pages: [
+    {
+      url: 'http://nytimes.com/news',
+      links: [
+        {
+          dest: 'https://ycombinator.com',
+          desc: 'ycombinator'
+        }
+      ]
+    }
+  ]
+}
+
+function Page(domain) {
+  this.domain = domain,
+  this.pages = []
+}
+
+Page.prototype.createPage(url) {
+  this.pages.push({url: })
+}
