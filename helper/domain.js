@@ -3,18 +3,24 @@
 
 function Domain(domain) {
   this.domain = domain,
-  this.pages = []
+  this.pages = [],
+  this.addPage = (page) => {
+    this.pages.push(page);
+  }
 } 
 
-Domain.prototype.Page = function(url) {
-  //somehow have to save pages in pages array 
-  this.url = url,
-  this.links = []
+function Page(url) {
+    //somehow have to save pages in pages array 
+    this.url = url,
+    this.links = []
+    this.addLink = (link) => {
+      this.links.push(link);
+    }  
 }
 
-Domain.prototype.Link = function(dest, desc) {
+function Link(dest, desc) {
   this.dest = dest,
   this.desc = desc
 }
 
-module.exports = Domain;
+module.exports = { Domain, Page, Link};
