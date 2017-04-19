@@ -1,9 +1,9 @@
 const fetch = require('node-fetch');
 const readline = require('readline');
-var Objects = require('../helper/Domain');
+var Objects = require('../helper/domain');
 var filterDomain = require('../helper/filterDomain');
 var parse = require('../helper/parser');
-var Queue = require('../helper/Queue');
+var Queue = require('../helper/queue');
 
 //queue for url to be parsed in order
 let queue = new Queue;
@@ -64,14 +64,17 @@ const getDomain = (domainName) => {
 const getPage = (url, domainName) => {
   return new Promise((resolve, reject) => {
     fetch(url)
-      .then((result) => result.text(), (failure) => console.log(`Fetch Error ${failure}`))
+      .then((result) => result.text(), (failure) => {
+        console.log(`Fetch Error ${failure}`);
+
+      })
       .then((html) => {
         console.log('fetch sucessfull');
+        let page = new Objects.Page(url);
         //[[dest, desc]]
         parse(html)
           .then((links => {
             //Page Object to be populated with Links
-            let page = new Objects.Page(url);
 
             //add links with same domain to queue
             for (let link of links) {
@@ -93,7 +96,8 @@ const getPage = (url, domainName) => {
             console.log(`got Page ${url}`)
             resolve(page);
           }), (error) => {
-            reject(error)
+            console.log(error)
+            resolve(page)
           })
       })
   })
