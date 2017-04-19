@@ -20,18 +20,20 @@ rl.question('Crawl (Full URL): ', (url) => {
 
 const crawl = (startUrl) => {
   let domainName = filterDomain(startUrl);
-  let domainObj = getDomain(domainName).then((domainObj) => {
-    console.log(JSON.stringify(domainObj));
-    //add to Couch DB
-  });
+  let domainObj = getDomain(domainName).then(domainObj => {
+    console.log(`initial Domain Object: ${JSON.stringify(domainObj)}`);
+    //add initial domain Obj to Couch DB
 
-  while (true) {
-    let nextUrl = queue.external.shift();
-    let nextDomainName = filterDomain(nextUrl);
-    getDomain(nextDomainName).then((domainObj) => {
-      //add Domain Obj to Couchbase
-    })
-  }
+    //crawl infinetly
+    while (queue.external.length > 0) {
+      let nextUrl = queue.external.shift();
+      console.log(`start crawling new page: ${nextUrl}`)
+      let nextDomainName = filterDomain(nextUrl);
+      getDomain(nextDomainName).then(domainObj => {
+        //add Domain Obj to Couchbase
+      })
+    }
+  })
 }
 
 //crawl main function
@@ -39,49 +41,60 @@ const getDomain = (domainName) => {
   return new Promise((resolve) => {
     let domain = new Objects.Domain(domainName);
 
-    if (queue.links.length == 0) {
-      startUrl = 'http://' + domainName;
-      let page = getPage(startUrl, domainName);
-      domain.addPage(page);
+    const getPageWrapper = (nextUrl = 'http://' + domainName) => {
+      let page = getPage(nextUrl, domainName).then((page => {
+        domain.addPage(page);
+        console.log(`Page added: ${nextUrl}`)
+        console.log(`internal Queue ${queue.internal.length}`);
+        //get ext page with same domain
+        if (queue.internal.length > 0) {
+          nextUrl = queue.internal.shift()
+          getPageWrapper(nextUrl)
+        }
+      }), error => {
+        console.log(`getPage Error: ${error}`)
+      })
     }
-    while (queue.links.length > 0) {
-      let nextUrl = queue.sameDoamain.shift();
-      let page = getPage(nextUrl, domainName);
-      domain.addPage(page);
-    }
-    resolve(domain);
+
+    getPageWrapper()
+    if (queue.internal.length < 1) resolve(domain);
   })
 }
 
 const getPage = (url, domainName) => {
-  fetch(url)
-    .then((result) => result.text(), (failure) => console.log(`Fetch Error ${failure}`))
-    .then((html) => {
-      console.log('fetch sucessfull');
-      //[[dest, desc]]
-      parse(html)
-        .then((links => {
-          //Page Object to be populated with Links
-          let page = new Objects.Page(url);
+  return new Promise((resolve, reject) => {
+    fetch(url)
+      .then((result) => result.text(), (failure) => console.log(`Fetch Error ${failure}`))
+      .then((html) => {
+        console.log('fetch sucessfull');
+        //[[dest, desc]]
+        parse(html)
+          .then((links => {
+            //Page Object to be populated with Links
+            let page = new Objects.Page(url);
 
-          //add links with same domain to queue
-          for (let link of links) {
-            //add absolute links with same domain
-            if (link[0].includes(domainName)) {
-              queue.addUrl(link[0], 'sameDomain');
+            //add links with same domain to queue
+            for (let link of links) {
+              //add absolute links with same domain
+
+              //add relative links and make them absolute
+              if (link[0].startsWith('/')) {
+                //make relative links absolute
+                queue.addUrl('http://' + domainName + link[0], 'internal');
+              } else if (link[0].includes(domainName) && link[0].startsWith('http') || link[0].startsWith('www')) {
+                //add all absolute of the same Domain 
+                queue.addUrl(link[0], 'internal');
+              } else if (!link[0].includes(domainName) && link[0].startsWith('http') || link[0].startsWith('www')) {
+                queue.addUrl(link, 'external');
+              }
+              link = new Objects.Link(link[0], link[1]);
+              page.addLink(link);
             }
-            //add relative links and make them absolute
-            else if (link[0].startsWith('/')) {
-              queue.addUrl('http://' + domainName + link[0], 'sameDomain');
-            } else {
-              queue.addUrl(link, 'external');
-            }
-            link = new Objects.Link(link[0], link[1]);
-            page.addLink(link);
-          }
-          return page;
-        }), (error) => {
-          console.log(error);
-        })
-    })
+            console.log(`got Page ${url}`)
+            resolve(page);
+          }), (error) => {
+            reject(error)
+          })
+      })
+  })
 }
